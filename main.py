@@ -7,7 +7,7 @@ import json
 from typing import List
 
 import uvicorn
-from fastapi import APIRouter, FastAPI, UploadFile, File, HTTPException
+from fastapi import APIRouter, FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(
@@ -37,13 +37,24 @@ UPLOAD_DIR = "temp_uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @api_v1.post("/verify")
-async def verify_endpoint(files: List[UploadFile] = File(...)):
+async def verify_endpoint(
+    files: List[UploadFile] = File(...),
+    expected_values: str = Form(None, description="Optional JSON string of the expected values to verify against"),
+    additional_text: str = Form(None, description="Any extra text instructions or context")
+):
     """
-    Endpoint to upload images (CIN, Contract, Receipt) and run the Gemini Document Verification.
+    Endpoint to upload images (CIN, Contract, Receipt) and run the Gemini Document Verification against optional expected values and extra text context.
     """
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded.")
         
+    parsed_expected = None
+    if expected_values:
+        try:
+            parsed_expected = json.loads(expected_values)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="expected_values must be a valid JSON string.")
+            
     request_id = str(uuid.uuid4())
     temp_paths = []
 
@@ -62,7 +73,11 @@ async def verify_endpoint(files: List[UploadFile] = File(...)):
         t_verif = time.time()
         
         # Pass the paths directly to your existing verifier function
-        result_text = verify_documents(temp_paths)
+        result_text = verify_documents(
+            temp_paths, 
+            expected_values=parsed_expected,
+            additional_text=additional_text
+        )
         
         logger.info(f"[{request_id}] Complete! Took {time.time() - t_verif:.2f}s")
         

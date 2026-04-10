@@ -14,7 +14,7 @@ client = genai.Client(api_key = API_KEY)
 # 2. Define the System Instruction (The "Brain" of the project)
 from prompt import VERIFICATION_PROMPT
 
-def verify_documents(image_paths):
+def verify_documents(image_paths, expected_values=None, additional_text=None):
     # Load images using PIL
     images = [PIL.Image.open(path) for path in image_paths]
     
@@ -27,7 +27,15 @@ def verify_documents(image_paths):
     
     # Provide the simple request alongside the images
     # Output formatting rules are now securely stored inside the prompt.py (VERIFICATION_PROMPT)
-    contents = ["Please verify these documents according to the system instructions."] + images
+    prompt_str = "Please verify these documents according to the system instructions."
+    
+    if additional_text:
+        prompt_str += f"\n\nAdditional Instructions or Context:\n{additional_text}"
+        
+    if expected_values:
+        prompt_str = f"Expected Values to verify against:\n{json.dumps(expected_values, ensure_ascii=False, indent=2)}\n\n" + prompt_str
+        
+    contents = [prompt_str] + images
     
     # Generate content using Gemini 3 Flash Preview with retry logic
     max_retries = 3
@@ -65,8 +73,16 @@ if __name__ == "__main__":
             if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))
         ]
         
+        # Example of expected values you can pass for testing
+        example_expected_values = {
+            "Nom Prénom": "Foulen Ben Foulen",
+            "CIN Number": "12345678",
+            "Numéro de Châssis": "12345ABC",
+            "Cylindrée": "49 cm³"
+        }
+        
         print("Gemini is analyzing documents...")
-        result_text = verify_documents(my_docs)
+        result_text = verify_documents(my_docs, expected_values=example_expected_values)
     
     try:
         # Parse the JSON string

@@ -3,8 +3,9 @@
 A precise and structured API service utilizing Google's Gemini LLM architecture to automatically cross-verify Tunisian vehicle transaction documents, specifically targeting Identity Cards (CIN), Sales Contracts/Invoices, and Receipts (Quittances).
 
 ## Features
-- **Multi-Document Verification**: Compares logic between Identity, Contracts, and Receipts natively.
-- **Strict JSON Structuring**: Forges Gemini output into an exact schema via targeted prompting (`response_mime_type="application/json"`).
+- **Dynamic Multi-Document Verification**: Compares logic between Identity, Contracts, and Receipts natively for variable sets (2 to 4 documents).
+- **In-Memory Expected Validations**: Injects user-provided expected data cleanly allowing LLM verification against ground truths.
+- **Strict JSON Structuring**: Forges Gemini output into an exact schema combining semantic reasoning branches (`_reasoning_1`, `_reasoning_2`) with boolean evaluations.
 - **Rate-limit Resiliency**: Custom `503` and `429` retry logic implementation ensures high availability despite Google Server API demand spikes.
 - **FastAPI Backend**: Fully encapsulated REST API endpoints configured and pre-optimized with Uvicorn.
 - **Containerized Environment**: Full Docker Compose setup specifically mapping port `8081` to avoid environment clashes.
@@ -41,21 +42,26 @@ Your server will deploy to `http://localhost:8081`.
 
 ## Endpoints
 ### `POST /api/v1/deux-roues/verify`
-Accepts `multipart/form-data` with images matching the internal key `files`.
+Accepts `multipart/form-data` with images matching the internal key `files` and an optional `expected_values` form field.
 
-**Input**: At least 2-3 image documents (.jpg, .png).
+**Input**:
+- `files`: 2-4 image documents (.jpg, .png) under Form Data.
+- `expected_values` (Optional): A stringified JSON providing the ground truth to match against. Ex: `{"Nom Prénom":"Doe", "CIN Number":"12345678", "Numéro de Châssis":"123", "Cylindrée":"49 cm³"}`
+
 **Response (Standard)**:
 ```json
 {
-  "verification_results": [
+  "_reasoning_1": "Analysis confirming Identity Card CIN and Contract CIN match.",
+  "_reasoning_2": "The expected values supplied are found successfully in the documents.",
+  "documents_matched": true,
+  "infos_list": [
     {
       "field_name": "Nom Prénom",
-      "values_in_documents": {
-        "document_1": "John Doe",
-        "document_2": "John Doe",
-        "document_3": "John Doe"
-      },
       "match_status": "matched"
+    },
+    {
+      "field_name": "Cylindrée",
+      "match_status": "not matched"
     }
   ]
 }
