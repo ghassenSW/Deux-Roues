@@ -38,33 +38,56 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @api_v1.post("/verify")
 async def verify_endpoint(
-    files: List[UploadFile] = File(...),
-    expected_values: str = Form(None, description="Optional JSON string of the expected values to verify against"),
+    CIN_doc: UploadFile = File(..., description="Document CIN (Image)"),
+    Contract_doc: UploadFile = File(..., description="Document Contrat (Image)"),
+    Other_docs: List[UploadFile] = File(default=[], description="Autres documents (Optionnels)"),
+    Full_Name: str = Form(None, description="Nom et prénom"),
+    CIN_number: str = Form(None, description="Numéro de CIN"),
+    Cylender_number: str = Form(None, description="Cylindrée"),
+    Imm_number: str = Form(None, description="Numéro d'immatriculation"),
     additional_text: str = Form(None, description="Any extra text instructions or context")
 ):
     """
-    Endpoint to upload images (CIN, Contract, Receipt) and run the Gemini Document Verification against optional expected values and extra text context.
+    Endpoint to upload images and run the Gemini Document Verification against text field values.
     """
-    if not files:
-        raise HTTPException(status_code=400, detail="No files uploaded.")
-        
-    parsed_expected = None
-    if expected_values:
-        try:
-            parsed_expected = json.loads(expected_values)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="expected_values must be a valid JSON string.")
+    # Build expected_values dictionary dynamically from text inputs
+    parsed_expected = {}
+    if Full_Name: parsed_expected["Full_Name"] = Full_Name
+    if CIN_number: parsed_expected["CIN_number"] = CIN_number
+    if Cylender_number: parsed_expected["Cylender_number"] = Cylender_number
+    if Imm_number: parsed_expected["Imm_number"] = Imm_number
+    
+    if not parsed_expected:
+        parsed_expected = None
             
     request_id = str(uuid.uuid4())
     temp_paths = []
+    doc_names = []
+    
+    # Consolidate all files into a single list while tracking their distinct type names
+    all_files = []
+    
+    if CIN_doc:
+        all_files.append(CIN_doc)
+        doc_names.append("CIN_doc")
+        
+    if Contract_doc:
+        all_files.append(Contract_doc)
+        doc_names.append("Contract_doc")
+        
+    if Other_docs:
+        for idx, doc in enumerate(Other_docs):
+            if doc.filename:
+                all_files.append(doc)
+                doc_names.append(f"Other_doc_{idx}")
 
     try:
         start_total = time.time()
-        logger.info(f"[{request_id}] Receiving {len(files)} files...")
+        logger.info(f"[{request_id}] Receiving {len(all_files)} files...")
 
         # Securely save uploaded files to a temporary folder
-        for file in files:
-            temp_path = os.path.join(UPLOAD_DIR, f"{request_id}_{file.filename}")
+        for idx, file in enumerate(all_files):
+            temp_path = os.path.join(UPLOAD_DIR, f"{request_id}_{idx}_{file.filename}")
             with open(temp_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             temp_paths.append(temp_path)
@@ -72,11 +95,12 @@ async def verify_endpoint(
         logger.info(f"[{request_id}] Starting Gemini Verification for {len(temp_paths)} images...")
         t_verif = time.time()
         
-        # Pass the paths directly to your existing verifier function
+        # Pass the paths directly to your existing verifier function alongside their specific labels
         result_text = verify_documents(
             temp_paths, 
             expected_values=parsed_expected,
-            additional_text=additional_text
+            additional_text=additional_text,
+            doc_names=doc_names
         )
         
         logger.info(f"[{request_id}] Complete! Took {time.time() - t_verif:.2f}s")

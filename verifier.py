@@ -14,9 +14,20 @@ client = genai.Client(api_key = API_KEY)
 # 2. Define the System Instruction (The "Brain" of the project)
 from prompt import VERIFICATION_PROMPT
 
-def verify_documents(image_paths, expected_values=None, additional_text=None):
+def verify_documents(image_paths, expected_values=None, additional_text=None, doc_names=None):
     # Load images using PIL
-    images = [PIL.Image.open(path) for path in image_paths]
+    images = []
+    
+    prompt_str = "Please verify these documents according to the system instructions.\n\nHere are the documents provided:\n"
+    
+    # Pair each image with its specific identifier (name) so Gemini knows what it is looking at
+    if doc_names:
+        for path, name in zip(image_paths, doc_names):
+            images.append(f"Document Type: {name}")
+            images.append(PIL.Image.open(path))
+    else:
+        for path in image_paths:
+            images.append(PIL.Image.open(path))
     
     # We pass the system instruction in the config
     config = types.GenerateContentConfig(
@@ -25,16 +36,13 @@ def verify_documents(image_paths, expected_values=None, additional_text=None):
         response_mime_type="application/json",
     )
     
-    # Provide the simple request alongside the images
-    # Output formatting rules are now securely stored inside the prompt.py (VERIFICATION_PROMPT)
-    prompt_str = "Please verify these documents according to the system instructions."
-    
     if additional_text:
         prompt_str += f"\n\nAdditional Instructions or Context:\n{additional_text}"
         
     if expected_values:
         prompt_str = f"Expected Values to verify against:\n{json.dumps(expected_values, ensure_ascii=False, indent=2)}\n\n" + prompt_str
         
+    # The `images` array now securely holds combinations of text labels ("Document Type: X") and PIL images
     contents = [prompt_str] + images
     
     # Generate content using Gemini 3 Flash Preview with retry logic

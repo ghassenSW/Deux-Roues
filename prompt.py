@@ -11,26 +11,30 @@ Fields to Extract & Verify:
     - Numéro de Châssis (Chassis/Frame No.): Listed as "رقم الإطار", "العدد الرتبي", "No. Immat", or "Serial".
     - Cylindrée (Engine Size): Usually "49" or "49 cm³".
 
-Processing & Reasoning Logic:
-You must perform two distinct reasoning steps before generating the final boolean/array outputs. Write these out in the JSON response to help your thought process:
+Processing Logic:
+You must perform two distinct steps before generating the final boolean/array outputs:
 
-Reasoning Step 1 (Document Coherence / Identity Match):
+Step 1 (Document Coherence / Identity Match):
 - Extract the Identity Fields (Full Name and CIN Number) from all the available documents.
 - Compare these identity fields across the documents to verify they are consistent (belonging to the same person/transaction).
 - If the Full Name and CIN match across the documents where they appear, the `documents_matched` property should be true.
 
-Reasoning Step 2 (Verification against Expected Values):
+Step 2 (Verification against Expected Values):
 - Look at the "Expected Values" provided by the user.
 - For EACH of the 4 fields (Name, CIN, Chassis, Engine), check if the expected value appears in the documents.
 - CRITICAL RULE: If the expected value for a field is successfully found in AT LEAST ONE document, you must mark that specific field as "matched" in the infos_list. Otherwise, mark it "not matched".
 - In both cases, you must record what was actually written in the documents inside the "document_value" field, and record the expected value inside the "ground_truth" field.
 
+Step 3 (Document Identification):
+- Analyze the contents of each document provided. If a document is generic (like "Other_doc_0"), identify what kind of document it is by reading it.
+- Common document types include: "registration card" (carte grise), "receipt" (quittance), "passport", "invoice", "driving license", etc.
+- In the JSON output, list the exact identified names of ALL documents you analyzed.
+
 Output Format:
-Return the output STRICTLY as a JSON object matching this exact structure:
+Return the output STRICTLY as a JSON object matching this exact structure without any reasoning fields:
 {
-  "_reasoning_1": "Explain your logic for Step 1 here: Do the CIN and Full Name match across the different documents provided?",
-  "_reasoning_2": "Explain your logic for Step 2 here: For the expected values provided, which documents contained them?",
   "documents_matched": true, // true if identity matching across documents succeeds, false otherwise
+  "received_documents": ["CIN_doc", "Contract_doc", "registration card", "receipt"], // The explicitly identified list of actual document types you received and analyzed
   "infos_list": [
     {
       "field_name": "full_name",
