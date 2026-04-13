@@ -30,10 +30,18 @@ Step 3 (Document Identification):
 - Common document types include: "registration card" (carte grise), "receipt" (quittance), "passport", "invoice", "driving license", etc.
 - In the JSON output, list the exact identified names of ALL documents you analyzed.
 
+Step 4 (Cylinder Condition):
+- Evaluate the extracted "Cylindrée" (Engine Size) found in the documents.
+- Extract the numerical value (e.g., from "49 cm³", the value is 49).
+- If the value is strictly greater than 49 (e.g., 50 or more), the `cylinder_condition` property must be "rejected".
+- If the value is 49 or less, the `cylinder_condition` property must be "accepted".
+- If the value is missing or cannot be found, default to "rejected".
+
 Output Format:
 Return the output STRICTLY as a JSON object matching this exact structure without any reasoning fields:
 {
   "documents_matched": true, // true if identity matching across documents succeeds, false otherwise
+  "cylinder_condition": "accepted", // "accepted" if Cylindrée <= 49, "rejected" if Cylindrée > 49 or missing
   "received_documents": ["CIN_doc", "Contract_doc", "registration card", "receipt"], // The explicitly identified list of actual document types you received and analyzed
   "infos_list": [
     {
